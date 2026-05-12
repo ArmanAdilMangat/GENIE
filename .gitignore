@@ -1,0 +1,43 @@
+# ───── SECRETS — never commit ─────
+firmware/include/secrets.h
+.env
+.env.local
+
+# ───── PlatformIO / Arduino ─────
+.pio/
+.pioenvs/
+.piolibdeps/
+.vscode/
+.clang_complete
+.gcc-flags.json
+
+# ───── Python ─────
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.Python
+.venv/
+venv/
+env/
+
+# ───── GENIE runtime artifacts ─────
+server/recordings/
+*.wav
+*.mp3
+
+# ───── Model caches ─────
+~/.cache/whisper/
+*.pt
+*.bin
+models/
+
+# ───── Logs ─────
+*.log
+
+# ───── OS / IDE noise ─────
+.DS_Store
+Thumbs.db
+.idea/
+*.swp
+*.swo
