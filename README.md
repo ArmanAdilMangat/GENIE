@@ -189,7 +189,7 @@ The enclosure is a 177.8 mm cube in 3 mm clear cast acrylic, 14 pieces from 11 u
 | Member | Built |
 |---|---|
 | **Arman Adil Mangat** · [GitHub](https://github.com/ArmanAdilMangat) · [LinkedIn](https://www.linkedin.com/in/arman-adil-mangat-82221a253) | Lead developer. Sensor nodes and their firmware, the inter-node link and telemetry contract, display driver and face, AIML pattern files, wake-word corpus, enclosure design and fabrication. Integration, jointly |
-| **Muhammad Suhaib Mamoon** | The host pipeline in `host/`: wake word, capture, transcription, intent routing with the language-model fallback, synthesis and speaker streaming, FastAPI backend, alert, climate and reaction watchers, board simulator. Cellular module, jointly with Farhal. Integration, jointly |
+| **Muhammad Suhaib Mamoon** · [GitHub](https://github.com/Suhaib580) | The host pipeline in `host/`: wake word, capture, transcription, intent routing with the language-model fallback, synthesis and speaker streaming, FastAPI backend, alert, climate and reaction watchers, board simulator. Cellular module, jointly with Farhal. Integration, jointly |
 | **M. Farhal Raza** | IoT relay box: firmware and wiring for the appliance-control node. Cellular module, jointly with Suhaib |
 | **Muhammad Huzaifa Furqan** | Project documentation |
 
