@@ -560,7 +560,11 @@ class IntentClassifier:
         elif blind:
             safety = "partial"
             self.log_blind(blind)
-        elif motion_s == "true":
+        elif motion_s == "true" or smoke_s == "elevated":
+            # Smoke past the warning ratio and short of the alarm one. The
+            # bridge reports it as "elevated" and sensor.aiml already has
+            # the sentence for it; without this test it fell through to
+            # "ok" and the summary said all clear.
             safety = "warning"
         else:
             safety = "ok"

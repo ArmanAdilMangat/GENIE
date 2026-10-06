@@ -91,8 +91,12 @@ class SensorWatcher:
         self._was_alerting = {}
         # sensor -> when it first went alerting (the debounce)
         self._since = {}
-        # when the last alert fired, for the cooldown
-        self._last_alert = 0.0
+        # when the last alert fired, for the cooldown.
+        # Minus infinity, not 0.0: time.monotonic() counts from boot on
+        # Windows, so on a machine up for less than the cooldown a zero here
+        # reads as "an alert fired a moment ago" and the first real alert is
+        # suppressed -- with its edge already consumed, so it never fires.
+        self._last_alert = float("-inf")
         # so a failing api.py does not print once per poll forever
         self._warned_unreachable = False
 

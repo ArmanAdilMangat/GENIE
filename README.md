@@ -76,7 +76,7 @@ Every figure is taken from the project report's results chapter. Where a number 
 | Wake word | fires at 0.65 sustained over 3 × 80 ms blocks | Custom model, 242 clips, 5 speakers. Bench: 9/10 at 2 m, 6/10 at 3 m |
 | Speech recognition | Faster-Whisper base / int8 | Segments rejected above `no_speech_prob` 0.6 or below `avg_logprob` −1.0. **No word-error-rate evaluation was run** |
 | Intent layer | 362 AIML patterns, 0 duplicates | All 24 conditionals in the sensor answer file carry a default branch |
-| Automated tests | 104 assertions, 5 suites (report figure) | Four of the five suite files are not in this repository. CI runs the module self-tests, the AIML audit, the frame round-trip and the enclosure audit instead |
+| Automated tests | 104 assertions, 5 suites (report figure) | Four of the five suite files are not in this repository. CI runs 15 alert-policy tests written for it, the module self-tests, the AIML audit, the frame round-trip and the enclosure audit |
 | Display | 2,477 kpx/s fill, 118 fps eye-engine soak | Hand-written 8080 parallel driver using `@micropython.viper` |
 | Backlog | 21 of 29 items complete | 5 more are implemented and blocked by something outside the software; 3 were never started |
 
@@ -89,7 +89,6 @@ Stated plainly, because a demo hides these and a reviewer should not have to fin
 - **Presence array.** Each of the four VL53L1X sensors works alone. Brought up together they fail non-deterministically, a different subset each boot. A sagging 3.3 V rail is the best-supported explanation and it has not been measured. The array is not in the demonstration unit.
 - **Emergency calling.** The SMS-then-call escalation is implemented. Autonomous calling was disabled after the modem's supply reset under the 2 A GSM transmit burst, and live validation still needs a SIM registered with the national regulator.
 - **Fall detection.** The three-stage detector receives a sample roughly every 50 ms on hardware where it needs one every 20 ms, and it detects the device falling, not a person. Fall alerting is switched off in the shipped configuration: a confirmed fall is recorded and answered when asked, and raises no alert.
-- **First alert after a cold start.** On a laptop booted less than ten minutes ago, the first sensor alert is treated as inside a cooldown and dropped. One-line fix, not yet applied; see the defect list in the status page.
 - **Gas readings.** The MQ-2 baseline has not been calibrated against a real combustion source.
 - **Wake-word false accepts.** About one activation per minute in a room with ongoing conversation.
 - **Beamforming.** Delay-and-sum across the two microphones gave no measurable improvement in range or false-accept rate. It is recorded as unproven, not as a feature.
@@ -125,6 +124,7 @@ host/
   config.py           every setting and the reason for it
   relay.aiml  sensor.aiml  hey_genie.onnx
   Services/           speech pipeline, alert / climate / reaction watchers, board simulator, monitor
+  tests/              alert-policy regression tests, fake clock, no board
 tools/                syntax, AIML and credential checks run by CI
 enclosure/            parametric DXF generator, independent audit, cut files, post-mortem
 docs/                 architecture, results, status, hardware, protocol, bring-up, fault records
@@ -147,6 +147,7 @@ pip install requests aiml.py
 cd host
 python3 Services/genie_serial.py && python3 Services/node_bridge.py
 python3 Services/climate_watch.py && python3 Services/reaction_watch.py
+python3 tests/test_alert_policy.py       # edge, debounce, cooldown, unknown-is-not-clear
 cd ..
 
 # the enclosure cut file passes its 21-point audit

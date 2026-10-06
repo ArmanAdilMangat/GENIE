@@ -34,6 +34,7 @@ jobs:
           python Services/node_bridge.py
           python Services/climate_watch.py
           python Services/reaction_watch.py
+          python tests/test_alert_policy.py
 
       - name: Shipped enclosure file passes its audit
         run: |

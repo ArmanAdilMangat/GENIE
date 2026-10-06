@@ -51,21 +51,23 @@ No board was attached. The host ran against `fake_node.py`.
 | Flame on the fast path, smoke debounced | Reproduced in simulation: alert 0.3 s after the flame line, 4.1 s after smoke reached alarm |
 | Speaker opcodes and 22,050 Hz audio rate agree between host and board | Reproduced by reading both sides |
 | Module self-tests | `genie_serial`, `node_bridge`, `climate_watch`, `reaction_watch` all pass and run in CI |
-| 104 assertions across five suites | **Not reproducible here.** `test_sensor_integration.py`, `test_wire_loop.py`, `test_wifi_uplink.py` and `test_handling_chain.py` are not in the repository |
+| Alert policy: edge, per-sensor debounce, cooldown, `unknown` versus clear | Reproduced by `host/tests/test_alert_policy.py`, 15 tests written for this repository against a fake clock |
+| 104 assertions across five suites | **Not reproducible here.** `test_sensor_integration.py`, `test_wire_loop.py`, `test_wifi_uplink.py` and `test_handling_chain.py` are not in the repository. `host/tests/test_alert_policy.py` covers the alert policy afresh; the wire loop, the Wi-Fi uplink and the handling chain have no replacement |
 | 72.6 % held-out accuracy and the rest of the classifier evaluation | **Not reproducible here.** `har_train.py`, `har_record.py` and `har_data.csv` are not in the repository; only the exported weights are |
 
 ## Defects found in the code as imported
 
-Left unfixed and listed, so that the code in this repository is the code that was demonstrated.
+Two were fixed after the import, in a commit of their own so the imported state stays visible in the history. The rest are open.
 
-| # | Where | What happens | Fix |
+| # | Where | What happens | State |
 |---|---|---|---|
-| 1 | `host/config.py`, `SENSOR_ALERT_STATES` | **Fall alerting is switched off.** The `FALL` entry was commented out on 2 September 2026 because handling on the bench kept triggering it; the comment in the file says so, and says that with it off the autonomous-fall claim is not true. A confirmed fall reaches the sensor store and is answered when asked. It raises no alert | Uncomment the entry once the detector has its 20 ms sample |
-| 2 | `host/Services/sensor_watch.py`, line 95 | `_last_alert` starts at `0.0` and is compared against `time.monotonic()`, which on Windows counts from system boot. On a laptop that has been up for less than the 600 s cooldown, the first alert is treated as inside a cooldown and dropped. The rising edge has already been consumed (line 153), so it does not fire later in the same episode either | Start `_last_alert` at minus infinity |
-| 3 | same file, line 155 | The cooldown is one timer shared by every sensor. A smoke alert silences a flame alert for the following ten minutes. The report describes it as per type | One timestamp per sensor |
-| 4 | `host/sensor.aiml`, the all-sensors summary | With smoke at `elevated` (past the warning ratio, below alarm) the answer to "check all sensors" is that all safety sensors are normal | Treat `elevated` as not clear in the summary |
-| 5 | `host/config.py`, `IOT_ESP_IP` | The relay node's address is a literal which the file itself says will drift on the next reconnect. Every other node finds the host by broadcast | Have the relay node answer the same UDP discovery |
-| 6 | `firmware/node2_presence/upload/node2_main.py`, `NODE1_MAC` | Still the broadcast address. The board warns at boot | Set the face board's station MAC |
+| 1 | `host/config.py`, `SENSOR_ALERT_STATES` | **Fall alerting is switched off.** The `FALL` entry was commented out on 2 September 2026 because handling on the bench kept triggering it; the comment in the file says so, and says that with it off the autonomous-fall claim is not true. A confirmed fall reaches the sensor store and is answered when asked. It raises no alert | Open, deliberate. Uncomment the entry once the detector has its 20 ms sample |
+| 2 | `host/Services/sensor_watch.py` | `_last_alert` started at `0.0` and was compared against `time.monotonic()`, which on Windows counts from system boot. On a laptop up for less than the 600 s cooldown, the first alert was treated as inside a cooldown and dropped; its rising edge had already been consumed, so it did not fire later in the same episode either | **Fixed.** Starts at minus infinity. Pinned by `test_first_alert_on_a_cold_machine` |
+| 3 | `host/Services/ai.py`, the all-sensors summary | With smoke at `elevated` (past the warning ratio, below alarm) the answer to "check all sensors" was that everything looked fine | **Fixed.** `elevated` now gives the warning sentence `sensor.aiml` already had. Pinned by `test_summary_elevated_smoke_is_not_all_clear` |
+| 4 | `host/config.py`, `IOT_ESP_IP` | The relay node's address is a literal which the file itself says will drift on the next reconnect. Every other node finds the host by broadcast | Open. Needs the relay node to answer the same UDP discovery |
+| 5 | `firmware/node2_presence/upload/node2_main.py`, `NODE1_MAC` | Still the broadcast address. The board warns at boot | Open. Set the face board's station MAC |
+
+**One cooldown for every sensor is a decision, not a defect.** After any alert, every sensor is ignored for 600 s, so that one event cannot place a second call the moment the first hangs up. `sensor_watch.py` states this at the top. The report words the cooldown as per type, and the cost is real: a flame inside the window after a smoke alert is not announced. `test_cooldown_covers_every_sensor` pins the behaviour so it cannot change by accident.
 
 Two smaller mismatches. The host sends follow-up opcodes 7 and 8 when the eight-second follow-up window opens and closes; neither audio-node firmware handles them (the microphone node acts on 5 and 6, the speaker node on 1 to 6), so the microphone is open with no visible cue. And the report gives the audio-node firmware as Arduino C++ where the code is MicroPython.
 
@@ -115,7 +117,6 @@ As recorded on 2 September 2026.
 
 ## Next
 
-0. Fix defects 2 and 3 above. Both are a few lines, and both sit on the safety path.
 1. Fit a low-impedance supply to the cellular module and re-test the transmit burst. This is the one remaining test that could reverse the decision to disable calling.
 2. Move fall detection off the display loop, or onto a timer, so it gets its 20 ms sample.
 3. Add the SW-420 signal to the handling classifier's feature vector — the identified fix for `picked_up`.

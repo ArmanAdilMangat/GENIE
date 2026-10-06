@@ -17,7 +17,8 @@ host/
 ├── make_emergency_clip.py   renders the clip the modem board plays into a call
 ├── probe_modem.py           AT-command diagnostic for the A7670E
 ├── requirements.txt
-└── Services/                the pipeline, the watchers and the operator tools
+├── Services/                the pipeline, the watchers and the operator tools
+└── tests/                   alert-policy regression tests
 ```
 
 [`Services/README.md`](Services/README.md) describes the sixteen modules.
@@ -46,6 +47,7 @@ python Services/genie_serial.py      # telemetry contract, alarm separation, emo
 python Services/node_bridge.py       # board vocabulary → API vocabulary
 python Services/climate_watch.py     # two-threshold fan control and the spoken override
 python Services/reaction_watch.py    # handling events → spoken reactions
+python tests/test_alert_policy.py    # alert edge, debounce, cooldown; unknown is never clear
 python ../tools/check_aiml.py        # well-formed, no duplicate patterns, every condition has a default
 ```
 
