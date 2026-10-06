@@ -1,6 +1,6 @@
 # Bring-up
 
-How to get the two sensor boards from blank to talking. Follow the order the first time; each step proves the one before it, and skipping is how a day disappears.
+How to get the two sensor boards from blank to talking. The audio and modem boards have their own pages: [`firmware/audio_nodes/`](../firmware/audio_nodes/README.md) and [`firmware/modem_node/`](../firmware/modem_node/README.md). Installing the host: [`SETUP.md`](SETUP.md). Follow the order the first time; each step proves the one before it, and skipping is how a day disappears.
 
 ## Toolchain
 
@@ -12,10 +12,10 @@ Flash the **`ESP32_GENERIC_S3-SPIRAM_OCT`** build on a module with octal PSRAM. 
 
 | Board | Upload to the device root | Autostart |
 |---|---|---|
-| Node 1 | everything in `firmware/node1_face/upload/`, plus `firmware/link/genie_link.py` | `main.py` |
-| Node 2 | everything in `firmware/node2_presence/upload/`, plus `firmware/link/genie_link.py` | `main.py` |
+| Node 1 | everything in `firmware/node1_face/upload/`, plus `genie_link.py`, `net_uplink.py` and your `wifi_cfg.py` from `firmware/link/` — 17 files | `main.py` |
+| Node 2 | everything in `firmware/node2_presence/upload/`, plus the same three — 9 files | `main.py` |
 
-For Node 2, copy `wifi_cfg.example.py` to `wifi_cfg.py`, set the network name and password, and upload that. `wifi_cfg.py` is git-ignored.
+Copy `firmware/link/wifi_cfg.example.py` to `wifi_cfg.py`, set the network name and password, and upload the same file to both boards. `wifi_cfg.py` is git-ignored. The two boards must end up on the same Wi-Fi channel: ESP-NOW shares the radio, and a mismatch drops every frame with no error on either side.
 
 If a file is on a board and not in its upload folder, delete it. MicroPython imports whatever it finds first, so a stale module shadows the new one. `firmware/node1_face/tools/cleanup.py` audits the device and lists what does not belong.
 
@@ -28,7 +28,7 @@ If a file is on a board and not in its upload folder, delete it. MicroPython imp
 5. **Node 1 sensors, one at a time, display always connected.** Work through `node1_face/testing/` in number order. Never add two modules at once.
 6. **The face.** Upload the Node 1 modules; `main.py` starts `genie_ui` after a three-second window in which Ctrl-C gives a clean REPL.
 7. **The link.** Run `node1_link.py` on Node 1 — it prints its station MAC. Put that in `NODE1_MAC` at the top of `node2_main.py`. Start Node 2. Distances print on Node 1 within a second. Broadcast (`ff:ff:ff:ff:ff:ff`) works for a first test, and every ESP-NOW device in the room receives it.
-8. **The host.** `python3 host/serial_reader/genie_serial.py` runs an offline self-test; then point `GenieNode` at the real port.
+8. **The host.** From `host/`: `python api.py`, then `python Services/sensor_monitor.py`. Values appear within about three seconds over Wi-Fi. If the face board is on USB instead, run `python Services/serial_bridge.py` as well, and close Thonny first: a serial port has one owner.
 
 ## Gates
 

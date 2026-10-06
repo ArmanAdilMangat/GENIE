@@ -12,4 +12,4 @@ The code in this repository is released under the MIT License (see `LICENSE`) un
 
 The host side of the system depends on these projects, each under its own licence: [MicroPython](https://micropython.org/), [faster-whisper](https://github.com/SYSTRAN/faster-whisper), [openWakeWord](https://github.com/dscripka/openWakeWord), [Piper](https://github.com/rhasspy/piper), [Ollama](https://ollama.com/) with Mistral-7B, PyAIML, FastAPI, webrtcvad, scikit-learn and NumPy. The enclosure tooling uses [ezdxf](https://ezdxf.mozman.at/) and matplotlib.
 
-MicroPython firmware images and model weights are not stored in this repository.
+MicroPython firmware images and third-party model weights (Whisper, Mistral-7B, the Piper voice) are not stored in this repository. `host/hey_genie.onnx` and the weights in `firmware/node1_face/upload/har_model.py` were trained by the team and are.

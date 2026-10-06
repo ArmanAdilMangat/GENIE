@@ -86,7 +86,7 @@ No formal word-error-rate or false-accept-rate evaluation on a held-out audio co
 
 ## Correctness
 
-Five automated suites, all runnable with no board attached.
+Five automated suites, all runnable with no board attached. The table is the report's. Only the first row can be re-run from this repository: the other four suite files were not in the code it was assembled from.
 
 | Suite | Proves | Assertions |
 |---|---|---|

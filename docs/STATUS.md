@@ -1,6 +1,6 @@
 # Status
 
-What works, what is blocked and by what, and what was never built. The backlog view is from the final project report (September 2026). The sensor-side detail is from the Phase 2 engineering record dated 2 September 2026 and has not been re-verified since.
+What works, what is blocked and by what, and what was never built. The backlog view is from the final project report (September 2026). The sensor-side detail is from the Phase 2 engineering record dated 2 September 2026 and has not been re-verified on hardware since. The two sections that follow the backlog are from a hardware-free pass over the code on 6 October 2026.
 
 ## Backlog
 
@@ -26,11 +26,11 @@ What works, what is blocked and by what, and what was never built. The backlog v
 | EP7-03 | Follow-up window without a second wake word | Complete | 8 s window, capped at 3 turns |
 | EP7-04 | Two-way SMS relay and DTMF acknowledgement | **Partial** | Relay and reply path exercised. Same SIM dependency as EP3-03 |
 | NFR-01 | Fully offline operation | Complete | Whole loop exercised with the internet disconnected |
-| NFR-02 | Sub-second fall and flame alerting | **Partial** | 50–150 ms through the loop test. Timing on assembled hardware pending |
+| NFR-02 | Sub-second fall and flame alerting | **Partial** | 50–150 ms through the loop test. Timing on assembled hardware pending. Fall alerting is disabled in the shipped configuration |
 | NFR-03 | Debounced smoke and presence alerting | Complete | 4 s smoke settle; a latched alarm does not re-fire |
 | NFR-04 | A silent sensor never reads as safe | Complete | `unknown` in no alerting set; 24/24 default branches |
-| NFR-05 | Automated regression coverage without hardware | Complete | 104 assertions, 5 suites |
-| NFR-06 | Zero manual network configuration | Complete | No hard-coded addresses in firmware |
+| NFR-05 | Automated regression coverage without hardware | Complete | 104 assertions, 5 suites. Four of the suite files are not in this repository |
+| NFR-06 | Zero manual network configuration | Complete | No hard-coded addresses in firmware. The host holds one, for the relay node |
 | NFR-07 | Battery-backed operation | Not started | — |
 | NFR-08 | Inference inside the face board's loop budget | Complete | 232 parameters, ~800-byte buffer |
 | NFR-09 | Model / extractor version guard | Complete | Mismatch raises at import |
@@ -38,11 +38,46 @@ What works, what is blocked and by what, and what was never built. The backlog v
 
 21 complete, 5 partial, 3 not started. Every in-scope requirement has an implementation; what remains is a supply fault, a SIM registration and one unobserved display channel.
 
+## Checked against the code on 6 October 2026
+
+No board was attached. The host ran against `fake_node.py`.
+
+| Claim | Result |
+|---|---|
+| 362 AIML patterns, 0 duplicates, 24 of 24 conditionals with a default branch | Reproduced: `tools/check_aiml.py` |
+| 232-parameter 14→12→4 classifier, 0.70 gate, extractor / model version guard | Reproduced from `har_model.py`: 168 + 12 + 48 + 4 |
+| Wake word 0.65 over 3 blocks; smoke settle 4 s; cooldown 600 s; follow-up 8 s, 3 turns; climate 32 °C on, 26.5 °C off | All match `host/config.py` |
+| A silent sensor never reads as safe | Reproduced end to end. With every safety sensor unreadable, "check all sensors" answers that it does not have a full safety reading |
+| Flame on the fast path, smoke debounced | Reproduced in simulation: alert 0.3 s after the flame line, 4.1 s after smoke reached alarm |
+| Speaker opcodes and 22,050 Hz audio rate agree between host and board | Reproduced by reading both sides |
+| Module self-tests | `genie_serial`, `node_bridge`, `climate_watch`, `reaction_watch` all pass and run in CI |
+| 104 assertions across five suites | **Not reproducible here.** `test_sensor_integration.py`, `test_wire_loop.py`, `test_wifi_uplink.py` and `test_handling_chain.py` are not in the repository |
+| 72.6 % held-out accuracy and the rest of the classifier evaluation | **Not reproducible here.** `har_train.py`, `har_record.py` and `har_data.csv` are not in the repository; only the exported weights are |
+
+## Defects found in the code as imported
+
+Left unfixed and listed, so that the code in this repository is the code that was demonstrated.
+
+| # | Where | What happens | Fix |
+|---|---|---|---|
+| 1 | `host/config.py`, `SENSOR_ALERT_STATES` | **Fall alerting is switched off.** The `FALL` entry was commented out on 2 September 2026 because handling on the bench kept triggering it; the comment in the file says so, and says that with it off the autonomous-fall claim is not true. A confirmed fall reaches the sensor store and is answered when asked. It raises no alert | Uncomment the entry once the detector has its 20 ms sample |
+| 2 | `host/Services/sensor_watch.py`, line 95 | `_last_alert` starts at `0.0` and is compared against `time.monotonic()`, which on Windows counts from system boot. On a laptop that has been up for less than the 600 s cooldown, the first alert is treated as inside a cooldown and dropped. The rising edge has already been consumed (line 153), so it does not fire later in the same episode either | Start `_last_alert` at minus infinity |
+| 3 | same file, line 155 | The cooldown is one timer shared by every sensor. A smoke alert silences a flame alert for the following ten minutes. The report describes it as per type | One timestamp per sensor |
+| 4 | `host/sensor.aiml`, the all-sensors summary | With smoke at `elevated` (past the warning ratio, below alarm) the answer to "check all sensors" is that all safety sensors are normal | Treat `elevated` as not clear in the summary |
+| 5 | `host/config.py`, `IOT_ESP_IP` | The relay node's address is a literal which the file itself says will drift on the next reconnect. Every other node finds the host by broadcast | Have the relay node answer the same UDP discovery |
+| 6 | `firmware/node2_presence/upload/node2_main.py`, `NODE1_MAC` | Still the broadcast address. The board warns at boot | Set the face board's station MAC |
+
+Two smaller mismatches. The host sends follow-up opcodes 7 and 8 when the eight-second follow-up window opens and closes; neither audio-node firmware handles them (the microphone node acts on 5 and 6, the speaker node on 1 to 6), so the microphone is open with no visible cue. And the report gives the audio-node firmware as Arduino C++ where the code is MicroPython.
+
 ## The blockers
 
 **Presence array (EP3-02, NFR-02).** Four VL53L1X modules, each proven genuine and each working alone. Brought up together, a different random subset fails on every boot with either a ranging timeout or `ENODEV`. A deterministic code defect would fail the same way each time and a wiring fault would fail on the same sensor; a supply sagging near its threshold is what gives a different answer every run. That hypothesis is the best fit for the data and it has not been confirmed with a meter. The same rail is implicated in a display reset storm on the face board. Full record: [`fault-records/tof-array-bringup.md`](fault-records/tof-array-bringup.md).
 
 **Cellular module (EP3-03, EP7-04).** The SIM is not registered with the Pakistan Telecommunication Authority's device registry, so the network would block the module after its grace period. Separately, autonomous calling was implemented, shown to work, and then disabled: the module's supply could not hold a 2 A GSM transmit burst without resetting. The emergency path ships as SMS only. The radio was pinned to 2G after LTE-to-GSM handover dropped every call. Re-enabling calling is one configuration flag once the supply is fixed.
+
+**Emergency clip.** `emergency_mic.wav`, the recording the modem node plays into a call, was never generated. With calling re-enabled the call would connect and play silence until it is.
+
+**Speaker amplifier.** The host-side setup notes record an open hardware fault at hand-over: the amplifier played only under probe pressure, traced to a bare crimp on the speaker output. The recorded speaker demonstrations predate it. Not re-checked.
 
 **Emotion channel (EP4-01).** The laptop sends an expression after each reply and the firmware accepts it. Nobody has yet watched it arrive on the physical display.
 
@@ -72,7 +107,7 @@ As recorded on 2 September 2026.
 
 | Claim | The defensible version |
 |---|---|
-| "It detects falls" | It implements a three-stage fall signature, tuned on one person, one surface and one mounting position. No labelled dataset exists, so no sensitivity or specificity can be quoted. As mounted it senses the device falling, not a person |
+| "It detects falls" | It implements a three-stage fall signature, tuned on one person, one surface and one mounting position. No labelled dataset exists, so no sensitivity or specificity can be quoted. As mounted it senses the device falling, not a person. In the shipped configuration a fall raises no alert |
 | "It detects gas" | Baselines are captured and the ratio logic works. The baseline has not been calibrated against a real source |
 | "Two vibration sensors localise a knock" | Acrylic carries vibration at about 2,200 m/s — 68 µs across the box. They give redundant, orientation-independent coverage |
 | "It can call for help" | It can send an SMS, once the SIM is registered. Calling is disabled |
@@ -80,6 +115,7 @@ As recorded on 2 September 2026.
 
 ## Next
 
+0. Fix defects 2 and 3 above. Both are a few lines, and both sit on the safety path.
 1. Fit a low-impedance supply to the cellular module and re-test the transmit burst. This is the one remaining test that could reverse the decision to disable calling.
 2. Move fall detection off the display loop, or onto a timer, so it gets its 20 ms sample.
 3. Add the SW-420 signal to the handling classifier's feature vector — the identified fix for `picked_up`.

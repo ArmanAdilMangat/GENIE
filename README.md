@@ -28,7 +28,7 @@ It was built for people for whom reaching a light switch is not a small thing: a
 - **Safety path.** Gas, flame, fall and vibration are confirmed on the microcontroller and never pass through the speech or language models. A sensor that cannot be read reports `unknown`, which can neither raise an alarm nor produce an all-clear.
 - **On-device learning.** A 232-parameter classifier runs on the face board itself, in plain MicroPython, to recognise when the unit is being tapped, pushed, picked up or shaken.
 
-> **Scope of this repository.** The sensing nodes, the inter-node link, the telemetry contract, the enclosure and the engineering record are here now. The host pipeline, the edge-AI training stack and the audio, relay and modem firmware are being imported from the team's working tree; those folders are marked *pending import* until they land. Figures quoted below for those parts come from the project report, not from code you can run in this repository yet.
+> **Scope of this repository.** The host pipeline, the firmware for five of the six boards, the enclosure and the engineering record are here and run. Three things the project report describes are not: the relay node's firmware, the training stack and dataset behind the on-device classifier, and four of the five test suites. They were not in the code this repository was assembled from. Figures that depend on them are marked as report figures; [`docs/STATUS.md`](docs/STATUS.md) lists what was re-checked against the code and what was not.
 
 ## System
 
@@ -45,7 +45,8 @@ flowchart LR
     HOST["<b>Laptop host</b><br/>openWakeWord → Faster-Whisper<br/>AIML → Mistral-7B fallback → Piper<br/>FastAPI · alert / climate / reaction watchers"]
 
     N2 -- "ESP-NOW · 14-byte frame" --> N1
-    N1 -- "USB serial · JSON lines" --> HOST
+    N1 -- "USB serial or TCP :9005 · JSON lines" --> HOST
+    N2 -. "TCP :9005 · direct" .-> HOST
     MIC -- "TCP · stereo PCM" --> HOST
     HOST -- "TCP · PCM" --> SPK
     HOST -- "HTTP · /relay" --> RLY
@@ -75,7 +76,7 @@ Every figure is taken from the project report's results chapter. Where a number 
 | Wake word | fires at 0.65 sustained over 3 × 80 ms blocks | Custom model, 242 clips, 5 speakers. Bench: 9/10 at 2 m, 6/10 at 3 m |
 | Speech recognition | Faster-Whisper base / int8 | Segments rejected above `no_speech_prob` 0.6 or below `avg_logprob` −1.0. **No word-error-rate evaluation was run** |
 | Intent layer | 362 AIML patterns, 0 duplicates | All 24 conditionals in the sensor answer file carry a default branch |
-| Automated tests | 104 assertions, 5 suites, all passing | Run with no board attached; one suite drives the real firmware emitter into the real host reader |
+| Automated tests | 104 assertions, 5 suites (report figure) | Four of the five suite files are not in this repository. CI runs the module self-tests, the AIML audit, the frame round-trip and the enclosure audit instead |
 | Display | 2,477 kpx/s fill, 118 fps eye-engine soak | Hand-written 8080 parallel driver using `@micropython.viper` |
 | Backlog | 21 of 29 items complete | 5 more are implemented and blocked by something outside the software; 3 were never started |
 
@@ -87,7 +88,8 @@ Stated plainly, because a demo hides these and a reviewer should not have to fin
 
 - **Presence array.** Each of the four VL53L1X sensors works alone. Brought up together they fail non-deterministically, a different subset each boot. A sagging 3.3 V rail is the best-supported explanation and it has not been measured. The array is not in the demonstration unit.
 - **Emergency calling.** The SMS-then-call escalation is implemented. Autonomous calling was disabled after the modem's supply reset under the 2 A GSM transmit burst, and live validation still needs a SIM registered with the national regulator.
-- **Fall detection.** The three-stage detector passes its unit tests but receives a sample roughly every 50 ms on hardware where it needs one every 20 ms. It detects the device falling, not a person.
+- **Fall detection.** The three-stage detector receives a sample roughly every 50 ms on hardware where it needs one every 20 ms, and it detects the device falling, not a person. Fall alerting is switched off in the shipped configuration: a confirmed fall is recorded and answered when asked, and raises no alert.
+- **First alert after a cold start.** On a laptop booted less than ten minutes ago, the first sensor alert is treated as inside a cooldown and dropped. One-line fix, not yet applied; see the defect list in the status page.
 - **Gas readings.** The MQ-2 baseline has not been calibrated against a real combustion source.
 - **Wake-word false accepts.** About one activation per minute in a room with ongoing conversation.
 - **Beamforming.** Delay-and-sum across the two microphones gave no measurable improvement in range or false-accept rate. It is recorded as unproven, not as a feature.
@@ -111,13 +113,19 @@ Current state by subsystem: [`docs/STATUS.md`](docs/STATUS.md).
 
 ```
 firmware/
-  link/               genie_link.py — the ESP-NOW frame, uploaded to both sensor boards
-  node1_face/         face, sensors, display driver, per-sensor benches      (MicroPython)
-  node2_presence/     ToF array, knock input, calibration, diagnostic bench  (MicroPython)
+  link/               the three files both sensor boards must share: ESP-NOW frame, Wi-Fi uplink, network template
+  node1_face/         face, sensors, display driver, telemetry, on-device classifier, per-sensor benches
+  node2_presence/     ToF array, knock input, calibration, diagnostic bench
+  audio_nodes/        microphone node and speaker node
+  modem_node/         A7670E emergency node
   r307s_fingerprint/  verification suite and driver — investigated, not in the final system
 host/
-  serial_reader/      runnable reference reader for the telemetry contract
-  README.md           what else belongs here (pending import)
+  api.py              sensor store, relay control, telemetry listener, UDP discovery
+  AudioServer.py      capture, wake word, voice-activity detection
+  config.py           every setting and the reason for it
+  relay.aiml  sensor.aiml  hey_genie.onnx
+  Services/           speech pipeline, alert / climate / reaction watchers, board simulator, monitor
+tools/                syntax, AIML and credential checks run by CI
 enclosure/            parametric DXF generator, independent audit, cut files, post-mortem
 docs/                 architecture, results, status, hardware, protocol, bring-up, fault records
 legacy/phase1/        the first prototype: one ESP32-S3, Flask, Whisper, pyttsx3
@@ -131,15 +139,34 @@ No hardware is needed for any of these.
 # the ESP-NOW frame round-trips and its size is derived, not assumed
 python3 firmware/link/genie_link.py
 
-# the host-side reader parses the telemetry contract and keeps alarms off the LLM path
-python3 host/serial_reader/genie_serial.py
+# the AIML files are well-formed, have no duplicate patterns, and every condition has a default
+python3 tools/check_aiml.py
+
+# host self-tests: telemetry contract, board-to-API bridge, climate control, handling reactions
+pip install requests aiml.py
+cd host
+python3 Services/genie_serial.py && python3 Services/node_bridge.py
+python3 Services/climate_watch.py && python3 Services/reaction_watch.py
+cd ..
 
 # the enclosure cut file passes its 21-point audit
 pip install -r enclosure/requirements.txt
 python3 enclosure/verify_dxf.py enclosure/DESIGN_B_NO_TOF/GENIE_NO_TOF.dxf
 ```
 
-Flashing and wiring the boards: [`docs/BRING_UP.md`](docs/BRING_UP.md) and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+## Try it without hardware
+
+The sensor store, the alert policy and every deterministic answer run on a laptop against a simulated pair of boards.
+
+```bash
+cd host
+pip install -r requirements.txt                  # Python 3.11 to 3.13
+python api.py                                    # terminal 1
+python Services/fake_node.py --scenario blind    # terminal 2: every safety sensor unreadable
+python Services/sensor_monitor.py                # terminal 3
+```
+
+Twelve scenarios, four of them failure cases. Installing the full speech pipeline: [`docs/SETUP.md`](docs/SETUP.md). Flashing and wiring the boards: [`docs/BRING_UP.md`](docs/BRING_UP.md) and [`docs/HARDWARE.md`](docs/HARDWARE.md).
 
 ## Hardware
 
@@ -160,8 +187,8 @@ The enclosure is a 177.8 mm cube in 3 mm clear cast acrylic, 14 pieces from 11 u
 
 | Member | Built |
 |---|---|
-| **Arman Adil Mangat** · [GitHub](https://github.com/ArmanAdilMangat) · [LinkedIn](https://www.linkedin.com/in/armanadilmangat) | Lead developer. Sensor nodes and their firmware, the inter-node link and telemetry contract, display driver and face, AIML pattern files, wake-word corpus, enclosure design and fabrication. Integration, jointly |
-| **Muhammad Suhaib Mamoon** | Microphone-to-speaker pipeline: wake word, capture, transcription, language-model integration, FastAPI backend, audio server, speech-pipeline integration. Integration, jointly |
+| **Arman Adil Mangat** · [GitHub](https://github.com/ArmanAdilMangat) · [LinkedIn](https://www.linkedin.com/in/arman-adil-mangat-82221a253) | Lead developer. Sensor nodes and their firmware, the inter-node link and telemetry contract, display driver and face, AIML pattern files, wake-word corpus, enclosure design and fabrication. Integration, jointly |
+| **Muhammad Suhaib Mamoon** | The host pipeline in `host/`: wake word, capture, transcription, intent routing with the language-model fallback, synthesis and speaker streaming, FastAPI backend, alert, climate and reaction watchers, board simulator. Cellular module, jointly with Farhal. Integration, jointly |
 | **M. Farhal Raza** | IoT relay box: firmware and wiring for the appliance-control node. Cellular module, jointly with Suhaib |
 | **Muhammad Huzaifa Furqan** | Project documentation |
 

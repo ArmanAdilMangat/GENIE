@@ -1,6 +1,6 @@
 # Architecture
 
-GENIE is one laptop and six ESP32-S3 boards. The laptop runs every model; the boards own the physical world. This page describes the system as delivered in the final project report (September 2026). For which parts of it are in this repository today, see the scope note in the [README](../README.md).
+GENIE is one laptop and six ESP32-S3 boards. The laptop runs every model; the boards own the physical world. This page describes the system as delivered in the final project report (September 2026). The report gives the audio and relay nodes as Arduino C++; the microphone and speaker firmware in this repository is MicroPython, and the table below follows the code. For what is and is not in the repository, see the scope note in the [README](../README.md).
 
 ## Why six boards
 
@@ -12,14 +12,14 @@ Splitting the work so that each board has one job was the answer to all three. T
 
 | Node | Core hardware | Firmware | Talks to the host over |
 |---|---|---|---|
-| Microphone | ESP32-S3, 2× INMP441 on one I2S bus in stereo mode, 10 cm apart | Arduino-ESP32 (C++) | TCP, one interleaved two-channel PCM stream |
-| Speaker | ESP32-S3, MAX98357A class-D amplifier, 5 W 4 Ω driver | Arduino-ESP32 (C++) | TCP, PCM chunks |
-| Relay / IoT | ESP32-S3, active-LOW relay board (light, fan), WS2812 status LED | Arduino-ESP32 (C++) | HTTP `GET /relay?light=<0\|1>&fan=<0\|1>` |
+| Microphone | ESP32-S3, 2× INMP441 on one I2S bus in stereo mode, 10 cm apart | MicroPython | TCP, one interleaved two-channel PCM stream |
+| Speaker | ESP32-S3, MAX98357A class-D amplifier, 5 W 4 Ω driver | MicroPython | TCP, PCM chunks |
+| Relay / IoT | ESP32-S3, active-LOW relay board (light, fan), WS2812 status LED | Not in this repository | HTTP `GET /relay?light=<0\|1>&fan=<0\|1>` |
 | **Node 1** — face and safety | ESP32-S3 with octal PSRAM, 2.4" ILI9341 on an 8-bit parallel bus, 2× MQ-2, flame sensor, DHT11, 2× MPU-6050, 2× SW-420, push button, WS2812 strip | MicroPython | USB serial at 115200 baud, one JSON object per line; the same lines over a held-open TCP socket when Wi-Fi is up |
 | **Node 2** — presence | ESP32-S3, 4× VL53L1X time-of-flight, SW-420 knock switches | MicroPython | ESP-NOW to Node 1, and in parallel a direct TCP line to the host |
 | Modem | ESP32-S3, SIMCom A7670E | MicroPython | TCP, a dedicated trigger link |
 
-The Wi-Fi nodes find the host by UDP broadcast on port 9999, so no address is written into any firmware and a new DHCP lease needs nothing reflashed.
+The Wi-Fi nodes find the host by UDP broadcast on port 9999, so no board carries the host's address and a new DHCP lease needs nothing reflashed. The one exception runs the other way: the host reaches the relay node at a literal address in `host/config.py`.
 
 ## The two paths
 

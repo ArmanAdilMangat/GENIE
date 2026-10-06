@@ -17,8 +17,11 @@ Work was divided by subsystem, not by sprint, so that each part of the system ha
 
 | Area | Location in this repository |
 |---|---|
-| Sensor nodes, link, enclosure, engineering record | `firmware/node1_face/`, `firmware/node2_presence/`, `firmware/link/`, `enclosure/`, `docs/` |
-| Host pipeline, edge-AI stack, audio / relay / modem firmware | `host/` and `firmware/` — pending import, see [`host/README.md`](host/README.md) |
+| Sensor nodes, ESP-NOW link, enclosure, engineering record | `firmware/node1_face/`, `firmware/node2_presence/`, `firmware/link/genie_link.py`, `firmware/r307s_fingerprint/`, `enclosure/`, `docs/` |
+| Host pipeline, watchers, simulator | `host/` |
+| Audio-node and modem-node firmware, Wi-Fi uplink | `firmware/audio_nodes/`, `firmware/modem_node/`, `firmware/link/net_uplink.py` |
+| Integration modules on Node 1 | `node1_report.py`, `fall_fsm.py`, `handling_fsm.py`, `har_features.py`, `har_model.py` in `firmware/node1_face/upload/` — see [`firmware/README.md`](firmware/README.md) |
+| Relay node | Not in this repository |
 | Phase 1 prototype | `legacy/phase1/` |
 
 ## Acknowledgements

@@ -7,7 +7,7 @@ Node 2  ── ESP-NOW, 14-byte binary frame ──▶  Node 1  ── JSON line
 presence array                                face + safety sensors                  speech pipeline
 ```
 
-This page is the sensor-side contract as written in late August 2026. [`firmware/link/genie_link.py`](../firmware/link/genie_link.py) is the executable definition of the first link, and [`host/serial_reader/genie_serial.py`](../host/serial_reader/genie_serial.py) is a runnable reference reader for the second. The integrated build adds self-check flags and state strings to the telemetry (`gas_level`, `gas_ok`, `flame_ok`, `fall_state`, `knock_count`); those are documented with the host code.
+This page is the sensor-side contract as written in late August 2026. [`firmware/link/genie_link.py`](../firmware/link/genie_link.py) is the executable definition of the first link, and [`host/Services/genie_serial.py`](../host/Services/genie_serial.py) is the runnable reader for the second. The integrated build adds self-check flags and state strings to the telemetry (`gas_level`, `gas_ok`, `flame_ok`, `fall_state`, `knock_count`); those are emitted by `firmware/node1_face/upload/node1_report.py` and translated by `host/Services/node_bridge.py`.
 
 **The rule that keeps this working:** whoever changes a field changes this document in the same commit. If it is not here, the other side is not required to handle it.
 

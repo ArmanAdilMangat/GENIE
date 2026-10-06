@@ -20,8 +20,20 @@ jobs:
       - name: ESP-NOW frame round-trips and its size is derived
         run: python firmware/link/genie_link.py
 
-      - name: Telemetry reader self-test
-        run: python host/serial_reader/genie_serial.py
+      - name: No credentials or phone numbers
+        run: python tools/check_secrets.py
+
+      - name: AIML files are well-formed, unique and always have a default
+        run: python tools/check_aiml.py
+
+      - name: Host self-tests (no board, no models)
+        working-directory: host
+        run: |
+          pip install requests "aiml.py==0.9.2"
+          python Services/genie_serial.py
+          python Services/node_bridge.py
+          python Services/climate_watch.py
+          python Services/reaction_watch.py
 
       - name: Shipped enclosure file passes its audit
         run: |
