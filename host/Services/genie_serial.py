@@ -1,3 +1,16 @@
+# ==========================================================================
+# The Node 1 <-> laptop contract parser. This is the only copy in the
+# repository.
+#
+# It was written on the sensor side as the reference implementation of the
+# telemetry contract (docs/PROTOCOL.md) and vendored into the host. The host
+# copy then gained one fix the original did not have: the [EMOTION:...] tag
+# is matched anywhere in a model reply, not only on a line of its own.
+#
+# GENIE-side behaviour belongs in node_bridge.py, which uses this file's
+# hooks and adds nothing to it. If a field is missing, change the protocol
+# document first, then this file.
+# ==========================================================================
 """
 genie_serial.py — laptop side of the GENIE link. Runnable, no framework.
 
@@ -30,6 +43,7 @@ unacceptable for a fire. An examiner will ask about alarm latency; a
 documented bypass is the answer. `on_alarm` below is that bypass.
 """
 import json
+import re
 import threading
 import time
 
@@ -39,6 +53,13 @@ except ImportError:                    # allow import for the offline self-test
     serial = None
 
 EMOTIONS = ("neutral", "happy", "sad", "thinking", "concerned", "alarm")
+
+# Matches the tag ANYWHERE, not just at the start of a line, and tolerates
+# the spacing variants a language model actually produces: [EMOTION:happy],
+# [emotion: happy], [ EMOTION : Happy ]. See strip_emotion_tag for why the
+# line-anchored version had to go.
+_EMOTION_RE = re.compile(r"\[\s*EMOTION\s*:\s*([A-Za-z_]+)\s*\]",
+                         re.IGNORECASE)
 
 # Node 1 forgets a laptop-set emotion after this long and falls back to
 # sensor-driven. Deliberate: if this process dies, GENIE must not sit there
@@ -215,25 +236,50 @@ class GenieNode:
 
     @staticmethod
     def strip_emotion_tag(reply):
-        """Mistral is asked to end every reply with a tag on its own line:
-            [EMOTION:neutral|happy|sad|thinking|concerned]
+        """Pull [EMOTION:...] out of a model reply, wherever it landed.
+
+            [EMOTION:neutral|happy|sad|thinking|concerned|alarm]
+
         Returns (clean_text, emotion_or_None).
 
         This is Option 1 from PROTOCOL.md and it is the one to ship: zero
         extra latency, zero extra model, zero extra RAM. Mistral already
         knows the sentiment of what it just wrote.
+
+        WHY THIS IS A REGEX AND NOT A LINE TEST. The prompt asks for the
+        tag on its OWN line, and the original implementation took that at
+        its word: it split on newlines and kept any line not starting with
+        "[EMOTION:". Mistral does not reliably comply. Observed live:
+
+            I'm unable to provide sensor readings at the moment. You can
+            ask for a specific sensor check. [EMOTION:neutral]
+
+        One line, tag at the end, so the startswith() test failed, the tag
+        survived, and Piper read "bracket emotion neutral" out loud. The
+        expression never reached the face either, because the emotion came
+        back None.
+
+        A prompt is a request, not a guarantee. Anything parsing model
+        output has to tolerate the model ignoring the format -- so this
+        matches the tag anywhere in the text, tolerates whitespace inside
+        the brackets, and is case-insensitive.
+
+        The LAST valid tag wins: the model is asked to END with it, so if
+        it emits several the final one is its considered answer.
         """
         emotion = None
-        out = []
-        for line in reply.splitlines():
-            s = line.strip()
-            if s.upper().startswith("[EMOTION:") and s.endswith("]"):
-                cand = s[9:-1].strip().lower()
-                if cand in EMOTIONS:
-                    emotion = cand
-                continue
-            out.append(line)
-        return "\n".join(out).strip(), emotion
+        for m in _EMOTION_RE.finditer(reply):
+            cand = m.group(1).strip().lower()
+            if cand in EMOTIONS:
+                emotion = cand
+
+        clean = _EMOTION_RE.sub("", reply)
+        # Removing an inline tag leaves a trailing space before the
+        # newline, and removing an own-line tag leaves a blank line.
+        clean = "\n".join(line.rstrip() for line in clean.splitlines())
+        while "\n\n\n" in clean:
+            clean = clean.replace("\n\n\n", "\n\n")
+        return clean.strip(), emotion
 
 
 # ---------------------------------------------------------------- self-test

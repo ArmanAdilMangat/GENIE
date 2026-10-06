@@ -49,6 +49,10 @@ users.json
 tof_baseline.json
 genie_cal.json
 
+# ───── Host: downloaded voice, modem-node settings ─────
+host/piper_voices/
+firmware/modem_node/settings.py
+
 # ───── Enclosure: regenerated on demand by genie_case_final.py ─────
 enclosure/DESIGN_A_WITH_TOF_HOLES/
 
