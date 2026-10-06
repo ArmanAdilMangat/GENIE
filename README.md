@@ -1,250 +1,176 @@
 <div align="center">
 
-# 🧞 GENIE
+# GENIE
 
-### **G**enerate, **E**ngage, **N**avigate **I**ntelligent **E**nvironments
+**Generate, Engage, Navigate Intelligent Environments**
 
-**A fully offline voice AI assistant that runs on a $22 ESP32-S3.**
-*No cloud. No API keys. No data ever leaves your network.*
+An offline voice assistant and home-safety monitor built from six ESP32-S3 nodes and one laptop.<br/>
+Wake word, speech recognition, intent routing and speech synthesis all run locally. No audio, transcript or telemetry leaves the network.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-![Platform](https://img.shields.io/badge/Platform-ESP32--S3-orange)
-![Firmware](https://img.shields.io/badge/Firmware-Arduino%20%2F%20PlatformIO-00979D)
-![Server](https://img.shields.io/badge/Server-Python%203.11%20%2B%20Flask-3776AB)
-![AI](https://img.shields.io/badge/AI-Whisper%20%2B%20Mistral%207B-7C3AED)
-![Status](https://img.shields.io/badge/Phase%201-Complete%20%E2%80%A2%2016%2F16%20user%20stories-success)
+<img src="docs/media/face_moods.gif" width="300" alt="GENIE's face cycling through sad, angry, surprised and sleepy on a 2.4-inch ILI9341 display"/>
+
+Final-year project · BS Artificial Intelligence · University of Management and Technology, Lahore · Nov 2025 – Sep 2026
+
+[![checks](https://github.com/ArmanAdilMangat/GENIE/actions/workflows/checks.yml/badge.svg)](https://github.com/ArmanAdilMangat/GENIE/actions/workflows/checks.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 </div>
 
 ---
 
-## ✨ What it does
+## What it is
 
-You press a button. You talk. A 240 MHz dual-core ESP32-S3 streams 16 kHz mono PCM
-over your local WiFi to a Flask server on your laptop. **OpenAI Whisper** transcribes
-it on a CUDA RTX 4060. **Mistral 7B** running locally via **Ollama** thinks about it.
-**pyttsx3** speaks the reply back. End-to-end: **8 – 15 seconds**, completely on-prem.
+Commercial voice assistants send household audio to a cloud, stop working when the internet does, and sell safety monitoring as a separate subscription. GENIE puts both jobs in one device and keeps everything local.
 
-GENIE is the final-year project of four AI students at the University of Management
-and Technology, Lahore. It was built as an **accessibility-first** voice interface
-for physically impaired users — a private, offline alternative to Alexa, Google
-Assistant, and Siri that doesn't phone home.
+It was built for people for whom reaching a light switch is not a small thing: appliances are switched by voice, the device reports its state through an animated face that can be read from across a room, and smoke, flame and fall events raise an alert without anyone asking.
 
----
+- **Voice path.** A custom "Hey Genie" wake word gates capture from two microphones. Faster-Whisper transcribes both channels and the clearer transcript wins. Device commands resolve through a deterministic AIML layer; only unmatched, non-sensor questions fall back to Mistral-7B running under Ollama. Piper speaks the reply.
+- **Safety path.** Gas, flame, fall and vibration are confirmed on the microcontroller and never pass through the speech or language models. A sensor that cannot be read reports `unknown`, which can neither raise an alarm nor produce an all-clear.
+- **On-device learning.** A 232-parameter classifier runs on the face board itself, in plain MicroPython, to recognise when the unit is being tapped, pushed, picked up or shaken.
 
-## 🏗️ Architecture
+> **Scope of this repository.** The sensing nodes, the inter-node link, the telemetry contract, the enclosure and the engineering record are here now. The host pipeline, the edge-AI training stack and the audio, relay and modem firmware are being imported from the team's working tree; those folders are marked *pending import* until they land. Figures quoted below for those parts come from the project report, not from code you can run in this repository yet.
 
-![GENIE Phase 1 System Architecture](docs/architecture.svg)
+## System
 
-Two containers talking to each other over your WiFi:
+```mermaid
+flowchart LR
+    subgraph wifi["Dedicated Wi-Fi AP · UDP discovery on :9999"]
+        MIC["<b>Mic node</b><br/>ESP32-S3 · 2× INMP441"]
+        SPK["<b>Speaker node</b><br/>ESP32-S3 · MAX98357A"]
+        RLY["<b>Relay node</b><br/>ESP32-S3 · active-LOW relays"]
+        MDM["<b>Modem node</b><br/>ESP32-S3 · A7670E"]
+    end
+    N2["<b>Node 2 · presence</b><br/>4× VL53L1X · knock switches"]
+    N1["<b>Node 1 · face + safety</b><br/>ILI9341 · 2× MQ-2 · flame · DHT11<br/>2× MPU-6050 · 2× SW-420"]
+    HOST["<b>Laptop host</b><br/>openWakeWord → Faster-Whisper<br/>AIML → Mistral-7B fallback → Piper<br/>FastAPI · alert / climate / reaction watchers"]
 
-1. **`firmware/`** — the ESP32-S3 client. Push-to-talk, capture, WAV-pack, HTTP POST.
-2. **`server/`** — the Flask bridge that wires Whisper → Mistral → pyttsx3 together.
+    N2 -- "ESP-NOW · 14-byte frame" --> N1
+    N1 -- "USB serial · JSON lines" --> HOST
+    MIC -- "TCP · stereo PCM" --> HOST
+    HOST -- "TCP · PCM" --> SPK
+    HOST -- "HTTP · /relay" --> RLY
+    HOST -- "TCP · alert trigger" --> MDM
+```
 
-See [`docs/wiring.md`](docs/wiring.md) for the full pin map and signal-conditioning notes.
+The hardware is split across six boards on purpose. One ESP32-S3 cannot drive two I2S audio streams, an 8-bit parallel display and a dozen sensors without pin conflicts, memory pressure and brown-outs; giving each board one job removed all three.
 
----
+Two data paths run side by side and never touch:
 
-## 📊 Phase 1 results
+| Path | Carries | Route | Time |
+|---|---|---|---|
+| **A · safety** | flame, fall, gas, presence | confirmed in firmware → telemetry line → alert decision | 50–150 ms for flame and fall; about 4 s for smoke (deliberate debounce) |
+| **B · conversation** | speech in, spoken reply out | wake word → Faster-Whisper → AIML / Mistral-7B → Piper | 8–15 s |
 
-| Metric | Value |
-| --- | --- |
-| User stories completed | **16 / 16** ✅ |
-| Critical bugs resolved | **10 / 10** ✅ |
-| End-to-end latency | **8 – 15 s** (user click → audible reply) |
-| Hardware BOM | **~$22** total |
-| Cloud calls per query | **0** — fully on-prem |
-| Audio quality | 16 kHz mono · 16-bit PCM |
-| Max utterance length | 7 s per turn (configurable) |
-| Power source | Single USB-C (laptop → dev board) |
+Full description: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
----
+## Measured results
 
-## 🔧 Hardware
+Every figure is taken from the project report's results chapter. Where a number does not exist, the table says so.
 
-| Component | Qty | Approx. cost | Role |
-| --- | :-: | :-: | --- |
-| ESP32-S3 DevKitC-1 (N16R8) | 1 | $10 | MCU + WiFi + PSRAM |
-| INMP441 I2S MEMS microphone | 1 | $4 | 24-bit digital audio capture |
-| Solderless breadboard + jumper wires | — | $5 | Prototyping |
-| USB-C cable | 1 | $3 | Power + serial monitor |
-| **Total** | | **~$22** | |
+| Component | Result | Notes |
+|---|---|---|
+| On-device handling classifier | **72.6 %** on a held-out recording session (679 windows) | 14→12→4 MLP, 232 parameters, pure MicroPython. A random split of one session gives 88.3 %; that figure is reported and not used |
+| Confidence gate at 0.70 | 82.6 % correct on the 77.8 % of windows it answers | The board stays silent on the other 22.2 % |
+| Weakest class | `picked_up` recall 24.1 % | An accelerometer cannot tell "held still in a hand" from "on a desk, being touched" |
+| Wake word | fires at 0.65 sustained over 3 × 80 ms blocks | Custom model, 242 clips, 5 speakers. Bench: 9/10 at 2 m, 6/10 at 3 m |
+| Speech recognition | Faster-Whisper base / int8 | Segments rejected above `no_speech_prob` 0.6 or below `avg_logprob` −1.0. **No word-error-rate evaluation was run** |
+| Intent layer | 362 AIML patterns, 0 duplicates | All 24 conditionals in the sensor answer file carry a default branch |
+| Automated tests | 104 assertions, 5 suites, all passing | Run with no board attached; one suite drives the real firmware emitter into the real host reader |
+| Display | 2,477 kpx/s fill, 118 fps eye-engine soak | Hand-written 8080 parallel driver using `@micropython.viper` |
+| Backlog | 21 of 29 items complete | 5 more are implemented and blocked by something outside the software; 3 were never started |
+
+More detail, including the confusion matrix and the path from 31.4 % to 72.6 %: [`docs/RESULTS.md`](docs/RESULTS.md).
+
+## What does not work
+
+Stated plainly, because a demo hides these and a reviewer should not have to find them.
+
+- **Presence array.** Each of the four VL53L1X sensors works alone. Brought up together they fail non-deterministically, a different subset each boot. A sagging 3.3 V rail is the best-supported explanation and it has not been measured. The array is not in the demonstration unit.
+- **Emergency calling.** The SMS-then-call escalation is implemented. Autonomous calling was disabled after the modem's supply reset under the 2 A GSM transmit burst, and live validation still needs a SIM registered with the national regulator.
+- **Fall detection.** The three-stage detector passes its unit tests but receives a sample roughly every 50 ms on hardware where it needs one every 20 ms. It detects the device falling, not a person.
+- **Gas readings.** The MQ-2 baseline has not been calibrated against a real combustion source.
+- **Wake-word false accepts.** About one activation per minute in a room with ongoing conversation.
+- **Beamforming.** Delay-and-sum across the two microphones gave no measurable improvement in range or false-accept rate. It is recorded as unproven, not as a feature.
+- **Not built.** Sign-in web dashboard and battery operation.
+
+Current state by subsystem: [`docs/STATUS.md`](docs/STATUS.md).
+
+## Engineering notes worth reading
+
+| Note | One line |
+|---|---|
+| [The frame that could never have worked](docs/fault-records/espnow-frame-size.md) | One side packed 10 bytes, the other checked for 12, and every frame vanished without an error on either board |
+| [A working handshake is not a working sensor](docs/fault-records/tof-array-bringup.md) | Four genuine sensors, a clean bus, and an array that still would not start |
+| [The fingerprint reader that was condemned, then enrolled a user](docs/fault-records/r307s-fingerprint.md) | A fault tree, and the evidence that later contradicted it |
+| [One wire, forty times less noise](docs/fault-records/mq2-ground-reference.md) | Why the gas reading swung ±25 % in clean air |
+| [Two days on a white screen](docs/fault-records/tft-data-pin-order.md) | The display shield's data pins are not in numeric order |
+| [What the first laser cut got wrong](enclosure/TEST_CUT_POSTMORTEM.md) | Five faults, each traced to a dimension nobody had measured |
+| [Lessons](docs/LESSONS.md) | The traps already paid for, in one page |
+
+## Repository map
+
+```
+firmware/
+  link/               genie_link.py — the ESP-NOW frame, uploaded to both sensor boards
+  node1_face/         face, sensors, display driver, per-sensor benches      (MicroPython)
+  node2_presence/     ToF array, knock input, calibration, diagnostic bench  (MicroPython)
+  r307s_fingerprint/  verification suite and driver — investigated, not in the final system
+host/
+  serial_reader/      runnable reference reader for the telemetry contract
+  README.md           what else belongs here (pending import)
+enclosure/            parametric DXF generator, independent audit, cut files, post-mortem
+docs/                 architecture, results, status, hardware, protocol, bring-up, fault records
+legacy/phase1/        the first prototype: one ESP32-S3, Flask, Whisper, pyttsx3
+```
+
+## Run the checks
+
+No hardware is needed for any of these.
+
+```bash
+# the ESP-NOW frame round-trips and its size is derived, not assumed
+python3 firmware/link/genie_link.py
+
+# the host-side reader parses the telemetry contract and keeps alarms off the LLM path
+python3 host/serial_reader/genie_serial.py
+
+# the enclosure cut file passes its 21-point audit
+pip install -r enclosure/requirements.txt
+python3 enclosure/verify_dxf.py enclosure/DESIGN_B_NO_TOF/GENIE_NO_TOF.dxf
+```
+
+Flashing and wiring the boards: [`docs/BRING_UP.md`](docs/BRING_UP.md) and [`docs/HARDWARE.md`](docs/HARDWARE.md).
+
+## Hardware
 
 <table>
   <tr>
-    <td align="center" width="50%">
-      <img src="docs/images/breadboard-early-build.jpg" width="100%" alt="Early breadboard prototype with ESP32-S3 boards"/>
-      <br><sub><b>Early breadboard prototype</b></sub>
-    </td>
-    <td align="center" width="50%">
-      <img src="docs/images/dual-esp32-with-mic.jpg" width="100%" alt="ESP32-S3 with INMP441 microphone wired up"/>
-      <br><sub><b>INMP441 wired to GPIO 5/6/7</b></sub>
-    </td>
+    <td width="50%"><img src="docs/media/bench_rig.gif" alt="Bench rig: the face, then the single-sensor page while the MQ-2 trim pot is adjusted"/></td>
+    <td width="50%"><img src="docs/media/speaker_fit.jpg" alt="Speaker driver and microphone module laid on a cut acrylic panel"/></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Bench rig: face, then one sensor filling the screen</sub></td>
+    <td align="center"><sub>Speaker and microphone laid on the cut panels during fit checks</sub></td>
   </tr>
 </table>
 
----
+The enclosure is a 177.8 mm cube in 3 mm clear cast acrylic, 14 pieces from 11 unique parts, with a back panel that slides out in glued rails. It is generated from one Python script and audited by another before every cut: [`enclosure/`](enclosure/).
 
-## 💻 Software stack
+## Team
 
-| Layer | Tool | Why |
-| --- | --- | --- |
-| Speech-to-text | OpenAI **Whisper** (base model) | Best-in-class accuracy for noisy room audio; runs locally on GPU |
-| Language model | **Mistral 7B** via **Ollama** | 7 B params fits comfortably on an RTX 4060; permissive license |
-| Text-to-speech | **pyttsx3** | Offline, cross-platform, no SaaS dependency |
-| Bridge | **Flask** | Smallest sensible HTTP surface for an embedded client |
-| Firmware | **Arduino-ESP32** / **PlatformIO** | First-class I2S driver, mature ecosystem |
+| Member | Built |
+|---|---|
+| **Arman Adil Mangat** · [GitHub](https://github.com/ArmanAdilMangat) · [LinkedIn](https://www.linkedin.com/in/armanadilmangat) | Lead developer. Sensor nodes and their firmware, the inter-node link and telemetry contract, display driver and face, AIML pattern files, wake-word corpus, enclosure design and fabrication. Integration, jointly |
+| **Muhammad Suhaib Mamoon** | Microphone-to-speaker pipeline: wake word, capture, transcription, language-model integration, FastAPI backend, audio server, speech-pipeline integration. Integration, jointly |
+| **M. Farhal Raza** | IoT relay box: firmware and wiring for the appliance-control node. Cellular module, jointly with Suhaib |
+| **Muhammad Huzaifa Furqan** | Project documentation |
 
----
+Supervisor: **Mr. Mahmood Hussain**, Department of Artificial Intelligence, UMT Lahore.
 
-## 🚀 Getting started
+Details in [`CONTRIBUTORS.md`](CONTRIBUTORS.md).
 
-### 1. Server (laptop)
+## License
 
-```bash
-# 1) Install Ollama and pull Mistral
-#    https://ollama.com/download
-ollama pull mistral
+MIT — see [`LICENSE`](LICENSE). Third-party origins are listed in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-# 2) Set up the Python server
-cd server
-python -m venv .venv
-source .venv/bin/activate           # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-
-# 3) Run the server (port 5000, listens on all interfaces)
-python app.py
-```
-
-> **ffmpeg required** — Whisper uses ffmpeg under the hood. On Windows, install
-> from [ffmpeg.org](https://ffmpeg.org/download.html) and add it to your `PATH`.
-
-Find your laptop's local IP — you'll need it for the firmware:
-
-| OS | Command |
-| --- | --- |
-| Windows | `ipconfig` → look for **IPv4 Address** |
-| macOS / Linux | `ifconfig` or `ip addr` → look for **inet** |
-
-### 2. Firmware (ESP32-S3)
-
-```bash
-cd firmware
-
-# Copy the secrets template and fill in your WiFi + Flask IP
-cp include/secrets.h.example include/secrets.h
-$EDITOR include/secrets.h
-
-# Build, flash, and open the serial monitor
-pio run -t upload
-pio device monitor -b 115200
-```
-
-In the serial monitor you'll see GENIE's interactive menu. Press the **BOOT** button
-on the dev board (or type `r` and hit Enter) to record a query.
-
-```
-╔════════════════════════════════════╗
-║         GENIE Voice Assistant      ║
-╠════════════════════════════════════╣
-║  🎤 BOOT btn / 'r' → Start record  ║
-║  ⏹️  's'           → Stop recording ║
-║  ⏸️  'p'           → Pause / Resume ║
-╠════════════════════════════════════╣
-║  🔬 COMPONENT TESTS:               ║
-║  'm' → Test Mic                    ║
-║  'w' → Test WiFi                   ║
-║  'f' → Test Flask server           ║
-║  'g' → Test Genie AI (Ollama)      ║
-║  'a' → Test ALL components         ║
-╚════════════════════════════════════╝
-```
-
----
-
-## 🧠 Engineering problems we had to solve
-
-A short tour of the four headaches that ate the most days. Full write-ups are in the
-[Phase 1 FYP submission](docs/) (PDF coming soon).
-
-### 1. INMP441 bit-shift tuning — `>>13` was the magic number
-
-The INMP441 emits 24-bit samples padded into a 32-bit I2S frame. Right-shifting by
-too little caused clipping on normal speech; too much lost dynamic range in quiet
-speech. After A/B testing values from `>>10` to `>>16`, **`>>13`** gave the cleanest
-signal-to-noise for typical conversational volume in a quiet room. The firmware
-uses `>>16` for the audio path (truncating to upper 16 bits) and `>>14` for the
-metering display so the peak number stays readable.
-
-### 2. Ghost-voice distortion — fixed by resampling 22050 → 16000 Hz
-
-`pyttsx3` on Windows emits 22050 Hz audio by default. When the Phase 2 work-in-progress
-returned that WAV to the ESP32 (which expects 16 kHz exactly), playback came out
-chipmunk-pitched and metallic. Resampling on the server with `audioop.ratecv()`
-before sending downstream eliminated the artifact. *(This fix lives in the Phase 2
-branch; Phase 1 ships the laptop-speaker path that doesn't need it.)*
-
-### 3. PSRAM overflow — 480 KB audio buffer wouldn't fit in DRAM
-
-At 16 kHz × 16-bit × 15 s the speech buffer alone is 480 KB. ESP32-S3 DRAM is only
-~320 KB after the WiFi stack initializes. The fix: limit Phase 1 to a 7 s buffer
-that fits in DRAM (224 KB), and move to a `ps_malloc()` PSRAM-backed buffer in
-Phase 2 once the longer-utterance use case landed.
-
-### 4. WiFi audio crackle — the missing 100 µF capacitor
-
-When the WiFi radio TX-bursted during streaming, the 3 V3 rail dipped enough to
-modulate the I2S clock, producing audible clicks. A 100 µF electrolytic across the
-mic's VDD/GND pins absorbed the transient and the crackle disappeared. Embedded AI
-is half ML, half power supply design.
-
----
-
-## 🛣️ Roadmap
-
-| Phase | Status | Highlights |
-| --- | :-: | --- |
-| **Phase 1** — Laptop reply | ✅ Complete | Whisper + Mistral + pyttsx3, 16/16 user stories |
-| **Phase 2** — On-device reply | 🚧 In progress | ESP-NOW peer-to-peer ✅, dual-mic stereo ✅, soldered PCB ✅, MAX98357A + 3 W speaker ✅, Whisper-small upgrade ✅, IoT control ✅. *Remaining:* "Hey Genie" wake-word, web dashboard with sign-in, 18650 battery operation |
-| **Phase 3** — Untethered AI | 📋 Planned | On-device inference (esp-dl quantized models), multi-language (English / Urdu / Mandarin) |
-
----
-
-## 👥 Team
-
-| Member | Role |
-| --- | --- |
-| **Arman Adil Mangat** ([@ArmanAdilMangat](https://github.com/ArmanAdilMangat)) | Team Lead · Hardware · Firmware · System integration |
-| Muhammad Suhaib Mamoon | AI pipeline · Flask server |
-| Muhammad Huzaifa Furqan | Firmware · Component testing |
-| Muhammad Farhal Raza | Documentation · Integration QA |
-| **Supervisor:** Mahmood Hussain | Department of Artificial Intelligence, UMT Lahore |
-
----
-
-## 🙏 Acknowledgments
-
-GENIE stands on the shoulders of open-source giants. None of this would be
-buildable by a team of four undergrads without:
-
-- [OpenAI Whisper](https://github.com/openai/whisper)
-- [Mistral AI](https://mistral.ai/) and the [Ollama](https://ollama.com/) team
-- The [Espressif ESP-IDF](https://github.com/espressif/esp-idf) and Arduino-ESP32 cores
-- [pyttsx3](https://github.com/nateshmbhat/pyttsx3) and the long lineage of offline TTS engines
-
----
-
-## 📄 License
-
-GENIE is released under the [MIT License](LICENSE). You are free to use, modify, and
-redistribute it for any purpose, including commercial work.
-
----
-
-<div align="center">
-
-**Built with ☕ and a soldering iron in Lahore, Pakistan 🇵🇰**
-
-*If GENIE helped you build something, a ⭐ on the repo is the only payment we ask for.*
-
-</div>
+GENIE is a student project and a demonstrator. It is not a medical device, a certified alarm or a substitute for either.

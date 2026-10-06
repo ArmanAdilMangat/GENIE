@@ -1,0 +1,35 @@
+name: checks
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  hardware-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Every Python file parses
+        run: python tools/check_syntax.py
+
+      - name: ESP-NOW frame round-trips and its size is derived
+        run: python firmware/link/genie_link.py
+
+      - name: Telemetry reader self-test
+        run: python host/serial_reader/genie_serial.py
+
+      - name: Shipped enclosure file passes its audit
+        run: |
+          pip install -r enclosure/requirements.txt
+          python enclosure/verify_dxf.py enclosure/DESIGN_B_NO_TOF/GENIE_NO_TOF.dxf
+
+      - name: Enclosure regenerates from source and still passes
+        working-directory: enclosure
+        run: |
+          python genie_case_final.py
+          python verify_dxf.py DESIGN_B_NO_TOF/GENIE_NO_TOF.dxf
