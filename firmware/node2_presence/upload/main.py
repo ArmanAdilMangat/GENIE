@@ -21,7 +21,7 @@ sends them TWO ways:
 
   ESP-NOW  ->  the face board, so it can draw distances on the TFT and fold
                them into its own telemetry line
-  TCP      ->  the laptop directly, so the ToF array keeps reporting even                                                                                                                                                                                                                                                                                                                                                                                                                                       
+  TCP      ->  the laptop directly, so the ToF array keeps reporting even
                when the face board is off, crashed, or being reflashed
 
 Both, not either. The ESP-NOW frame is the documented contract and the face

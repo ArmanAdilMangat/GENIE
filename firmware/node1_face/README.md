@@ -24,12 +24,19 @@ The resting state is not a data readout. It is a face — brows, blinking, pupil
 | `eyes.py` | The face: six moods, each a preset of height, corner radius, eyelid coverage and colour, all tweened |
 | `sensors.py` | One reader for every sensor. Each is polled on its own schedule and cached, so a read never blocks |
 | `genie_ui.py` | Pages, the button, the main loop |
+| `node1_report.py` | The telemetry emitter: one JSON line per tick to USB serial and, through `net_uplink`, to the host over TCP. Carries the self-check flags (`gas_ok`, `flame_ok`, `imu_ok`) that let the host tell a dead sensor from a quiet one |
+| `fall_fsm.py` | Free-fall → impact → stillness state machine used by the integrated build |
+| `handling_fsm.py` | Rule-based handling detector: the baseline the learned model is compared against |
+| `har_features.py` | The 14-feature extractor, shared with the trainer so the two cannot drift |
+| `har_model.py` | The exported 14→12→4 classifier, 232 parameters, with a 0.70 confidence gate and a feature-version guard |
 | `genie_menu.py` | Diagnostics menu: rotation wizard, raw button view, live sensor table, bus scan |
-| `fall_detect.py` | Standalone three-stage fall detector on the MPU-6050 |
+| `fall_detect.py` | The original standalone three-stage fall detector, kept for the bench |
 | `node1_link.py` | Receiving half of the ESP-NOW link from Node 2. Non-blocking |
 | `main.py` | Autostart with a three-second escape hatch |
 
-`genie_link.py` from [`../link/`](../link/) is uploaded alongside these.
+`genie_link.py` and `net_uplink.py` from [`../link/`](../link/) are uploaded alongside these, together with a `wifi_cfg.py` made from `../link/wifi_cfg.example.py`. Seventeen files on the device in all.
+
+`genie_menu.py` is imported by nothing and must still be uploaded: its option 9 is the only way to set the gas baseline, and without a baseline smoke can never reach the alarm threshold.
 
 ## One button, four pages
 

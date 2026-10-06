@@ -65,6 +65,15 @@ from ili9341_par import ILI9341Par, color565, fbcolor, Canvas
 import eyes as eyemod
 import sensors
 
+# The laptop link: newline-JSON out over USB serial, {"emotion":...} back.
+# Guarded so a board that has not had node1_report.py uploaded yet still
+# boots and shows a face -- which is how this firmware behaved for months
+# and must keep behaving. See 03_PROTOCOL/PROTOCOL.md.
+try:
+    import node1_report
+except ImportError:
+    node1_report = None
+
 # ---------------------------------------------------------------------------
 ROTATION = 3                 # <-- flip the display here. 1 or 3 (180 apart).
 BTN = 39
@@ -336,6 +345,16 @@ class UI:
         self._panel_at = time.ticks_ms()
         self._revives = 0
 
+        # Reporter owns the serial protocol, the fall FSM's fast IMU poll
+        # and the ESP-NOW link to Node 2. Constructed last: everything it
+        # reads has to exist first.
+        self.rep = None
+        if node1_report is not None:
+            try:
+                self.rep = node1_report.Reporter(self.sen)
+            except Exception as e:
+                print("node1_report failed to start (face runs anyway):", e)
+
     # -- helpers ------------------------------------------------------------
     def key(self):
         return ORDER[self.idx % len(ORDER)]
@@ -511,15 +530,29 @@ class UI:
     def update_eyes(self):
         state = self.sen.mood()
 
+        # The laptop can ask for an expression while it is thinking or
+        # speaking. mood_override() returns None once the request expires
+        # (20 s, per PROTOCOL.md) AND whenever a sensor is alarming -- so
+        # a requested smile can never sit on the face during a gas leak.
+        asked = self.rep.mood_override() if self.rep is not None else None
+
         # The idle ladder only ever applies to "calm". Anything a sensor
         # actually measured skips it entirely, so an alarm is instant no
         # matter how long the board has been sitting there.
-        if state == "calm":
+        #
+        # A laptop request skips it too, and must be applied AFTER it, not
+        # before: GENIE talking to you is not GENIE being idle. Asking for
+        # "happy" and then letting the ladder walk it down to "sleepy" mid
+        # reply is the exact bug this ordering avoids.
+        if state == "calm" and asked is None:
             quiet = time.ticks_diff(time.ticks_ms(), self.last_input)
             for limit, rung in IDLE_LADDER:
                 if limit is None or quiet < limit:
                     state = rung
                     break
+
+        if asked is not None:
+            state = asked
 
         self.eyes.set_mood(MOOD[state])
 
@@ -543,6 +576,13 @@ class UI:
         while True:
             self.handle(self.btn.poll())
             self.sen.tick()
+
+            # Costs microseconds when there is nothing due. Placed with
+            # sen.tick() and not inside a draw branch on purpose: the "all"
+            # page below `continue`s, and telemetry must not stop just
+            # because somebody is holding a menu open.
+            if self.rep is not None:
+                self.rep.tick()
 
             if self.page == "all":
                 if time.ticks_diff(time.ticks_ms(), self._all_at) \

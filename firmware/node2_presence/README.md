@@ -4,13 +4,13 @@ A second ESP32-S3 carrying four VL53L1X time-of-flight sensors (front, left, rig
 
 It exists because a ranging call blocks for about 100 ms, and Node 1's display loop has 33 ms per frame. The sensors live here and reach Node 1 as finished numbers.
 
-> **State.** Each sensor works alone. The four together fail bring-up non-deterministically, and the array is not in the demonstration unit. The firmware below is complete and is kept as it was recovered from the board; comments inside the files refer to folder names from the working tree it came from. Read [the fault record](../../docs/fault-records/tof-array-bringup.md) before trusting or changing any of it.
+> **State.** Each sensor works alone. The four together fail bring-up non-deterministically, and the array is not in the demonstration unit. The firmware below is complete; comments inside the files refer to folder names from the working tree it came from. Read [the fault record](../../docs/fault-records/tof-array-bringup.md) before trusting or changing any of it.
 
 ## Layout
 
 | Folder | Contents |
 |---|---|
-| `upload/` | The modules as pulled off the board on 2 September 2026 |
+| `upload/` | The running modules |
 | `calibration/` | Baseline, noise estimate, thresholds, hysteresis and drift — with the method written up |
 | `bench/` | Per-stage bench tools: bus scan, single sensor, multi-sensor, knock patterns |
 | `bench/final_fault_isolation/` | The thirteen-test instrument written to isolate the bring-up fault |
@@ -23,11 +23,11 @@ It exists because a ranging call blocks for about 100 ms, and Node 1's display l
 | `node2_main.py` | Bring-up, per-sensor calibration, detection loop, ESP-NOW transmit |
 | `vl53l1x.py` | Compact VL53L1X driver: init, model-ID check, address reassignment, distance mode, ranging |
 | `zones.py` | Distance-to-zone classification with hysteresis |
-| `pins3.py`, `tof3.py` | Pin map and array helpers used by the bench tools |
-| `net_uplink.py` | A held-open, non-blocking TCP line to the host, in parallel with ESP-NOW |
-| `wifi_cfg.example.py` | Network settings template. Copy to `wifi_cfg.py` and fill in |
+| `pins3.py`, `tof3.py` | Pin map and array helpers. `bench/tof_bench.py` and `bench/run_tof_test.py` import `tof3` |
 
-`genie_link.py` from [`../link/`](../link/) is uploaded alongside these.
+`genie_link.py` and `net_uplink.py` from [`../link/`](../link/) are uploaded alongside these, together with a `wifi_cfg.py` made from `../link/wifi_cfg.example.py`. Nine files on the device in all.
+
+The board as it was read back on 2 September 2026 differed from this set in two ways, both left over from fault isolation: the read loop in `node2_main.py` printed which sensor had failed, and `tof3.py` had been replaced by a self-contained bring-up script. That script is kept as [`bench/tof_bringup_standalone.py`](bench/tof_bringup_standalone.py).
 
 ## What it does on every boot
 

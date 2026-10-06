@@ -154,25 +154,14 @@ def bring_up(i2c):
 
 def read_all(sensors):
     out = []
-
-    for i, s in enumerate(sensors):
+    for s in sensors:
         if s is None:
             out.append(None)
             continue
-
         try:
-            mm = s.distance()
-
-            if mm is not None:
-                out.append(mm)
-            else:
-                out.append(None)
-
-        except Exception as e:
-            print("ToF %d (%s) READ ERROR: %s" %
-                  (i, link.SIDE[i], e))
-            out.append(None)
-
+            out.append(s.distance())      # mm, or None on a bad range status
+        except OSError:
+            out.append(None)              # a dropped read is not a crash
     return out
 
 
