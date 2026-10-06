@@ -1,0 +1,137 @@
+GENIE Rev J - independent DXF audit - 29-08-2026
+
+############ DESIGN B (NO ToF) - THE ONE TO CUT ############
+
+file    : DESIGN_B_NO_TOF/GENIE_NO_TOF.dxf
+version : AC1009 (AC1009 = AutoCAD R12)
+layers  : {('CUT', 1): 79, ('ENGRAVE', 5): 1820, ('NOTES', 8): 4426}
+outlines: 14   inner cutouts: 11   cut circles: 54
+extents : X 10.00..567.40  Y 10.00..635.60
+
+nominal part sizes measured from the file:
+     177.8 x 177.8    x1
+     177.8 x 174.8    x1
+     177.8 x 165.0    x1
+     174.8 x 171.8    x2
+     171.0 x 171.2    x1
+     100.0 x 100.0    x2
+      92.0 x 134.0    x1
+       6.0 x 171.8    x4
+       6.0 x 165.8    x1
+
+joint correspondence (mirror applied to 03 LEFT):
+   03 LEFT  front tabs  -> FRONT  L+R notches     MATCH
+   03 LEFT  bottom tabs -> BOTTOM L+R notches     MATCH
+   03 LEFT  top tabs    -> TOP    L+R notches     MATCH
+   04 RIGHT front tabs  -> FRONT  L+R notches     MATCH
+   04 RIGHT bottom tabs -> BOTTOM L+R notches     MATCH
+   04 RIGHT top tabs    -> TOP    L+R notches     MATCH
+   06 BOTTOM front tabs -> FRONT bottom notches   MATCH
+   05 TOP    front tabs -> FRONT top    notches   MATCH
+
+cut circles     : {3.2: 32, 15.5: 3, 5.5: 2, 46.0: 2, 20.0: 2, 10.0: 1, 12.0: 3, 6.4: 7, 6.2: 1, 15.0: 1}
+engraved rings  : {}
+
+ToF 25 x 10 rectangles:  CUT layer = 0      ENGRAVE layer = 0
+
+ENGRAVE audit
+   entities        : 1820   (CUT aci 1, ENGRAVE aci 5)
+   closest blue-to-red approach : 0.83 mm
+   coupon engrave test patches : 3
+
+sliding stack: 162.4 + 6.0 rail + 3.4 channel + 6.0 rail = 177.8 = rear face
+panel 171.0 wide in a 171.8 opening; 171.2 tall in 171.8; lid 165.0 deep
+
+==========================================================================
+  PASS  3 layers, every entity carries an explicit ACI colour -- CUT=1 red, ENGRAVE=5 blue, NOTES=8 grey  (LaserCut / SmartCarve)
+  PASS  only R12-safe POLYLINE and CIRCLE entities ({'POLYLINE': 6271, 'CIRCLE': 54})
+  PASS  all 25 CUT polylines are closed loops
+  PASS  14 separate part outlines; every cutout sits inside exactly one
+  PASS  no two CUT paths intersect anywhere on the sheet
+  PASS  no path crosses itself
+  PASS  no cut segment is drawn twice on the same line (no double burn)
+  PASS  all CUT geometry inside the 610 x 915 sheet
+  PASS  minimum part-to-part gap on the sheet 10.00 mm
+  PASS  all 14 parts measure their specified size, correct quantities
+  PASS  all 8 joint pairs line up: every tab has a notch at the same coordinate on the mating panel
+  PASS  tab widths: front 16.42, bottom 16.76, top 15.67 mm, 5 per edge
+  PASS  cut circles: 32 x M3 3.2, flame 5.5 + gauge, toggle 6.4 x6 + 6.2/6.4 gauges, pan-tilt wire 10.0, 3 x button 12.0, 2 x mic 15.5 + 15.0/15.5 gauges, 2 x MQ-2 20.0, 2 x speaker 46.0
+  PASS  no engraved circles left: the old 11 mm mic ring and 53 mm speaker seat are gone -- the 11 mm and 46 mm CUTS are the seats
+  PASS  VARIANT = NO TOF AT ALL. Zero 25 x 10 rectangles on CUT and zero on ENGRAVE -- no ToF geometry anywhere in the file
+  PASS  all 1820 ENGRAVE entities carry ACI 5, distinct from CUT ACI 1 -- the controller will see two separate layers
+  PASS  no ENGRAVE segment lies on top of a CUT line: every blue mark is on its own path, nothing gets burned twice
+  PASS  every ENGRAVE path sits wholly inside exactly one part outline -- no blue geometry on the waste sheet, none straddling an edge
+  PASS  closest an ENGRAVE mark comes to a CUT path is 0.83 mm -- clear of the cut edge, so it stays a surface mark
+  PASS  the fit coupon carries 3 x 10 x 7 engrave test patches -- cut it on scrap and confirm they come out as a mark, not a hole
+  PASS  sliding stack sums to the rear face; panel clears the opening both ways
+==========================================================================
+21 passed, 0 failed
+SAFE TO CUT
+
+############ DESIGN A (WITH ToF holes) - fallback ############
+
+file    : DESIGN_A_WITH_TOF_HOLES/GENIE_WITH_TOF.dxf
+version : AC1009 (AC1009 = AutoCAD R12)
+layers  : {('CUT', 1): 83, ('ENGRAVE', 5): 1950, ('NOTES', 8): 4388}
+outlines: 14   inner cutouts: 15   cut circles: 54
+extents : X 10.00..567.40  Y 10.00..635.60
+
+nominal part sizes measured from the file:
+     177.8 x 177.8    x1
+     177.8 x 174.8    x1
+     177.8 x 165.0    x1
+     174.8 x 171.8    x2
+     171.0 x 171.2    x1
+     100.0 x 100.0    x2
+      92.0 x 134.0    x1
+       6.0 x 171.8    x4
+       6.0 x 165.8    x1
+
+joint correspondence (mirror applied to 03 LEFT):
+   03 LEFT  front tabs  -> FRONT  L+R notches     MATCH
+   03 LEFT  bottom tabs -> BOTTOM L+R notches     MATCH
+   03 LEFT  top tabs    -> TOP    L+R notches     MATCH
+   04 RIGHT front tabs  -> FRONT  L+R notches     MATCH
+   04 RIGHT bottom tabs -> BOTTOM L+R notches     MATCH
+   04 RIGHT top tabs    -> TOP    L+R notches     MATCH
+   06 BOTTOM front tabs -> FRONT bottom notches   MATCH
+   05 TOP    front tabs -> FRONT top    notches   MATCH
+
+cut circles     : {3.2: 32, 15.5: 3, 5.5: 2, 46.0: 2, 20.0: 2, 10.0: 1, 12.0: 3, 6.4: 7, 6.2: 1, 15.0: 1}
+engraved rings  : {}
+
+ToF 25 x 10 rectangles:  CUT layer = 4      ENGRAVE layer = 0
+
+ENGRAVE audit
+   entities        : 1950   (CUT aci 1, ENGRAVE aci 5)
+   closest blue-to-red approach : 0.83 mm
+   coupon engrave test patches : 3
+
+sliding stack: 162.4 + 6.0 rail + 3.4 channel + 6.0 rail = 177.8 = rear face
+panel 171.0 wide in a 171.8 opening; 171.2 tall in 171.8; lid 165.0 deep
+
+==========================================================================
+  PASS  3 layers, every entity carries an explicit ACI colour -- CUT=1 red, ENGRAVE=5 blue, NOTES=8 grey  (LaserCut / SmartCarve)
+  PASS  only R12-safe POLYLINE and CIRCLE entities ({'POLYLINE': 6367, 'CIRCLE': 54})
+  PASS  all 29 CUT polylines are closed loops
+  PASS  14 separate part outlines; every cutout sits inside exactly one
+  PASS  no two CUT paths intersect anywhere on the sheet
+  PASS  no path crosses itself
+  PASS  no cut segment is drawn twice on the same line (no double burn)
+  PASS  all CUT geometry inside the 610 x 915 sheet
+  PASS  minimum part-to-part gap on the sheet 10.00 mm
+  PASS  all 14 parts measure their specified size, correct quantities
+  PASS  all 8 joint pairs line up: every tab has a notch at the same coordinate on the mating panel
+  PASS  tab widths: front 16.42, bottom 16.76, top 15.67 mm, 5 per edge
+  PASS  cut circles: 32 x M3 3.2, flame 5.5 + gauge, toggle 6.4 x6 + 6.2/6.4 gauges, pan-tilt wire 10.0, 3 x button 12.0, 2 x mic 15.5 + 15.0/15.5 gauges, 2 x MQ-2 20.0, 2 x speaker 46.0
+  PASS  no engraved circles left: the old 11 mm mic ring and 53 mm speaker seat are gone -- the 11 mm and 46 mm CUTS are the seats
+  PASS  VARIANT = WITH TOF HOLES. 4 open 25 x 10 apertures on CUT, one per direction
+  PASS  all 1950 ENGRAVE entities carry ACI 5, distinct from CUT ACI 1 -- the controller will see two separate layers
+  PASS  no ENGRAVE segment lies on top of a CUT line: every blue mark is on its own path, nothing gets burned twice
+  PASS  every ENGRAVE path sits wholly inside exactly one part outline -- no blue geometry on the waste sheet, none straddling an edge
+  PASS  closest an ENGRAVE mark comes to a CUT path is 0.83 mm -- clear of the cut edge, so it stays a surface mark
+  PASS  the fit coupon carries 3 x 10 x 7 engrave test patches -- cut it on scrap and confirm they come out as a mark, not a hole
+  PASS  sliding stack sums to the rear face; panel clears the opening both ways
+==========================================================================
+21 passed, 0 failed
+SAFE TO CUT
