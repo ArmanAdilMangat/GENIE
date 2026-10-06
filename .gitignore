@@ -1,5 +1,5 @@
 # ───── SECRETS — never commit ─────
-firmware/include/secrets.h
+**/include/secrets.h
 .env
 .env.local
 
@@ -22,7 +22,7 @@ venv/
 env/
 
 # ───── GENIE runtime artifacts ─────
-server/recordings/
+**/recordings/
 *.wav
 *.mp3
 
@@ -41,3 +41,16 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# ───── Sensor-board credentials and runtime state ─────
+# copy wifi_cfg.example.py to wifi_cfg.py and fill it in; never commit the result
+wifi_cfg.py
+users.json
+tof_baseline.json
+genie_cal.json
+
+# ───── Enclosure: regenerated on demand by genie_case_final.py ─────
+enclosure/DESIGN_A_WITH_TOF_HOLES/
+
+# ───── Scratch ─────
+_scratch/
